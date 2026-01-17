@@ -1,5 +1,6 @@
 #include "JavaWizardWidget.h"
 
+#include <QCheckBox>
 #include <QFileDialog>
 #include <QGroupBox>
 #include <QLabel>
@@ -185,7 +186,7 @@ void JavaWizardWidget::setupUi()
 
 void JavaWizardWidget::initialize()
 {
-    m_versionWidget->initialize(APPLICATION->javalist().get());
+    m_versionWidget->initialize(APPLICATION->javalist());
     m_versionWidget->selectSearch();
     m_versionWidget->setResizeOn(2);
     auto s = APPLICATION->settings();
