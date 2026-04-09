@@ -7,7 +7,7 @@ class ModrinthCheckUpdate : public CheckUpdateTask {
 
    public:
     ModrinthCheckUpdate(QList<Resource*>& resources,
-                        std::list<Version>& mcVersions,
+                        std::vector<Version>& mcVersions,
                         QList<ModPlatform::ModLoaderType> loadersList,
                         ResourceFolderModel* resourceModel);
 
@@ -25,5 +25,5 @@ class ModrinthCheckUpdate : public CheckUpdateTask {
     QHash<QString, Resource*> m_mappings;
     QString m_hashType;
     int m_loaderIdx = 0;
-    int m_initialSize = 0;
+    qsizetype m_initialSize = 0;
 };

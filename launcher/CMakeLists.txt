@@ -75,9 +75,6 @@ set(CORE_SOURCES
     # RW lock protected map
     RWStorage.h
 
-    # A variable that has an implicit default value and keeps track of changes
-    DefaultVariable.h
-
     # a smart pointer wrapper intended for safer use with Qt signal/slot mechanisms
     QObjectPtr.h
 
@@ -102,14 +99,17 @@ set(CORE_SOURCES
     MMCTime.cpp
 
     MTPixmapCache.h
+
+    # Assertion helper
+    AssertHelpers.h
 )
 if (UNIX AND NOT CYGWIN AND NOT APPLE)
     set(CORE_SOURCES
     ${CORE_SOURCES}
 
-    # MangoHud
-    MangoHud.h
-    MangoHud.cpp
+    # LibraryUtils
+    LibraryUtils.h
+    LibraryUtils.cpp
     )
 endif()
 
@@ -244,15 +244,13 @@ set(MINECRAFT_SOURCES
     minecraft/auth/steps/MSAStep.h
     minecraft/auth/steps/XboxAuthorizationStep.cpp
     minecraft/auth/steps/XboxAuthorizationStep.h
-    minecraft/auth/steps/XboxProfileStep.cpp
-    minecraft/auth/steps/XboxProfileStep.h
     minecraft/auth/steps/XboxUserStep.cpp
     minecraft/auth/steps/XboxUserStep.h
 
     minecraft/update/AssetUpdateTask.h
     minecraft/update/AssetUpdateTask.cpp
-    minecraft/update/FMLLibrariesTask.cpp
-    minecraft/update/FMLLibrariesTask.h
+    minecraft/update/LegacyFMLLibrariesTask.cpp
+    minecraft/update/LegacyFMLLibrariesTask.h
     minecraft/update/FoldersTask.cpp
     minecraft/update/FoldersTask.h
     minecraft/update/LibrariesTask.cpp
@@ -262,6 +260,10 @@ set(MINECRAFT_SOURCES
     minecraft/launch/ClaimAccount.h
     minecraft/launch/CreateGameFolders.cpp
     minecraft/launch/CreateGameFolders.h
+    minecraft/launch/EnsureAvailableMemory.cpp
+    minecraft/launch/EnsureAvailableMemory.h
+    minecraft/launch/EnsureOfflineLibraries.cpp
+    minecraft/launch/EnsureOfflineLibraries.h
     minecraft/launch/ModMinecraftJar.cpp
     minecraft/launch/ModMinecraftJar.h
     minecraft/launch/ExtractNatives.cpp
@@ -527,6 +529,11 @@ set(FTB_SOURCES
     modplatform/import_ftb/PackInstallTask.cpp
     modplatform/import_ftb/PackHelpers.h
     modplatform/import_ftb/PackHelpers.cpp
+
+    modplatform/ftb/FTBPackInstallTask.h
+    modplatform/ftb/FTBPackInstallTask.cpp
+    modplatform/ftb/FTBPackManifest.h
+    modplatform/ftb/FTBPackManifest.cpp
 )
 
 set(FLAME_SOURCES
@@ -792,6 +799,8 @@ SET(LAUNCHER_SOURCES
     ApplicationMessage.cpp
     SysInfo.h
     SysInfo.cpp
+    HardwareInfo.cpp
+    HardwareInfo.h
 
     # console utils
     console/Console.h
@@ -807,23 +816,6 @@ SET(LAUNCHER_SOURCES
     # Super secret!
     KonamiCode.h
     KonamiCode.cpp
-
-    # Bundled resources
-    resources/backgrounds/backgrounds.qrc
-    resources/multimc/multimc.qrc
-    resources/pe_dark/pe_dark.qrc
-    resources/pe_light/pe_light.qrc
-    resources/pe_colored/pe_colored.qrc
-    resources/pe_blue/pe_blue.qrc
-    resources/breeze_dark/breeze_dark.qrc
-    resources/breeze_light/breeze_light.qrc
-    resources/OSX/OSX.qrc
-    resources/iOS/iOS.qrc
-    resources/flat/flat.qrc
-    resources/flat_white/flat_white.qrc
-    resources/documents/documents.qrc
-    resources/shaders/shaders.qrc
-    "${CMAKE_CURRENT_BINARY_DIR}/../${Launcher_Branding_LogoQRC}"
 
     # Icons
     icons/MMCIcon.h
@@ -894,6 +886,7 @@ SET(LAUNCHER_SOURCES
     ui/themes/CatPainter.h
 
     # Processes
+    LaunchMode.h
     LaunchController.h
     LaunchController.cpp
 
@@ -1004,6 +997,13 @@ SET(LAUNCHER_SOURCES
     ui/pages/modplatform/atlauncher/AtlUserInteractionSupportImpl.cpp
     ui/pages/modplatform/atlauncher/AtlUserInteractionSupportImpl.h
 
+    ui/pages/modplatform/ftb/FtbFilterModel.cpp
+    ui/pages/modplatform/ftb/FtbFilterModel.h
+    ui/pages/modplatform/ftb/FtbListModel.cpp
+    ui/pages/modplatform/ftb/FtbListModel.h
+    ui/pages/modplatform/ftb/FtbPage.cpp
+    ui/pages/modplatform/ftb/FtbPage.h
+
     ui/pages/modplatform/legacy_ftb/Page.cpp
     ui/pages/modplatform/legacy_ftb/Page.h
     ui/pages/modplatform/legacy_ftb/ListModel.h
@@ -1067,6 +1067,8 @@ SET(LAUNCHER_SOURCES
     ui/dialogs/ImportResourceDialog.h
     ui/dialogs/MSALoginDialog.cpp
     ui/dialogs/MSALoginDialog.h
+    ui/dialogs/NetworkJobFailedDialog.cpp
+    ui/dialogs/NetworkJobFailedDialog.h
     ui/dialogs/NewComponentDialog.cpp
     ui/dialogs/NewComponentDialog.h
     ui/dialogs/NewInstanceDialog.cpp
@@ -1233,6 +1235,7 @@ qt_wrap_ui(LAUNCHER_UI
     ui/pages/modplatform/import_ftb/ImportFTBPage.ui
     ui/pages/modplatform/ImportPage.ui
     ui/pages/modplatform/OptionalModDialog.ui
+    ui/pages/modplatform/ftb/FtbPage.ui
     ui/pages/modplatform/modrinth/ModrinthPage.ui
     ui/pages/modplatform/technic/TechnicPage.ui
     ui/widgets/CustomCommands.ui
@@ -1248,6 +1251,7 @@ qt_wrap_ui(LAUNCHER_UI
     ui/dialogs/ProfileSetupDialog.ui
     ui/dialogs/ProgressDialog.ui
     ui/dialogs/NewInstanceDialog.ui
+    ui/dialogs/NetworkJobFailedDialog.ui
     ui/dialogs/NewComponentDialog.ui
     ui/dialogs/NewsDialog.ui
     ui/dialogs/ProfileSelectDialog.ui
@@ -1286,6 +1290,7 @@ qt_add_resources(LAUNCHER_RESOURCES
     resources/OSX/OSX.qrc
     resources/iOS/iOS.qrc
     resources/flat/flat.qrc
+    resources/flat_white/flat_white.qrc
     resources/documents/documents.qrc
     resources/shaders/shaders.qrc
     "${CMAKE_CURRENT_BINARY_DIR}/../${Launcher_Branding_LogoQRC}"
@@ -1302,8 +1307,6 @@ if(WIN32)
     set(LAUNCHER_RCS ${CMAKE_CURRENT_BINARY_DIR}/../${Launcher_Branding_WindowsRC})
 endif()
 
-include(CompilerWarnings)
-
 ######## Precompiled Headers ###########
 
 if(${Launcher_USE_PCH})
@@ -1319,10 +1322,6 @@ endif()
 
 # Add executable
 add_library(Launcher_logic STATIC ${LOGIC_SOURCES} ${LAUNCHER_SOURCES} ${LAUNCHER_UI} ${LAUNCHER_RESOURCES})
-set_project_warnings(Launcher_logic
-    "${Launcher_MSVC_WARNINGS}"
-    "${Launcher_CLANG_WARNINGS}"
-    "${Launcher_GCC_WARNINGS}")
 target_include_directories(Launcher_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(Launcher_logic PUBLIC LAUNCHER_APPLICATION)
 
@@ -1331,7 +1330,6 @@ if(${Launcher_USE_PCH})
 endif()
 
 target_link_libraries(Launcher_logic
-    systeminfo
     Launcher_murmur2
     nbt++
     ${ZLIB_LIBRARIES}
@@ -1408,8 +1406,6 @@ if(APPLE)
     endif()
 endif()
 
-target_link_libraries(Launcher_logic)
-
 add_executable(${Launcher_Name} MACOSX_BUNDLE WIN32 main.cpp ${LAUNCHER_RCS})
 
 if(${Launcher_USE_PCH})
@@ -1454,7 +1450,6 @@ if(Launcher_BUILD_UPDATER)
 
     target_link_libraries(prism_updater_logic
         ${ZLIB_LIBRARIES}
-        systeminfo
         BuildConfig
         Qt${QT_VERSION_MAJOR}::Widgets
         Qt${QT_VERSION_MAJOR}::Core
@@ -1499,10 +1494,6 @@ endif()
 if(WIN32 OR (DEFINED Launcher_BUILD_FILELINKER AND Launcher_BUILD_FILELINKER))
     # File link
     add_library(filelink_logic STATIC ${LINKEXE_SOURCES})
-    set_project_warnings(filelink_logic
-    "${Launcher_MSVC_WARNINGS}"
-    "${Launcher_CLANG_WARNINGS}"
-    "${Launcher_GCC_WARNINGS}")
 
     target_include_directories(filelink_logic PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -1511,7 +1502,6 @@ if(WIN32 OR (DEFINED Launcher_BUILD_FILELINKER AND Launcher_BUILD_FILELINKER))
     endif()
 
     target_link_libraries(filelink_logic
-        systeminfo
         BuildConfig
         Qt${QT_VERSION_MAJOR}::Widgets
         Qt${QT_VERSION_MAJOR}::Core
@@ -1563,6 +1553,26 @@ if (UNIX AND APPLE AND Launcher_ENABLE_UPDATER)
     install(DIRECTORY ${MACOSX_SPARKLE_DIR}/Sparkle.framework DESTINATION ${FRAMEWORK_DEST_DIR} USE_SOURCE_PERMISSIONS)
 endif()
 
+# Set basic compiler warning/error flags for all targets
+get_property(Launcher_TARGETS DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY BUILDSYSTEM_TARGETS)
+foreach(target ${Launcher_TARGETS})
+    message(STATUS "Enabling all warnings as errors for target '${target}'")
+    if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+endforeach()
+
+# Disable some warnings in main launcher target due to being present in a lot of places. TODO: Fix them.
+if (CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    target_compile_options(Launcher_logic PRIVATE /wd4100) # C4100 - unused parameter
+    target_compile_options(${Launcher_Name} PRIVATE /wd4100) # C4100 - unused parameter
+else()
+    target_compile_options(Launcher_logic PRIVATE -Wno-unused-parameter -Wno-missing-field-initializers)
+    target_compile_options(${Launcher_Name} PRIVATE -Wno-unused-parameter -Wno-missing-field-initializers)
+endif()
+
 #### The bundle mess! ####
 # Bundle utilities are used to complete packages for different platforms - they add all the libraries that would otherwise be missing on the target system.
 # NOTE: it seems that this absolutely has to be here, and nowhere else.
@@ -1612,6 +1622,49 @@ if(WIN32 OR (UNIX AND APPLE))
         SCRIPT ${QT_DEPLOY_SCRIPT}
         COMPONENT bundle
     )
+    # FIXME: remove this crap once we stop using msys2
+    if(MINGW)
+        # i've not found a solution better than injecting the config vars like this...
+        # with install(CODE" for everything everything just breaks
+        install(CODE "
+            set(QT_PLUGINS_DIR \"${QT_PLUGINS_DIR}\")
+            set(QT_LIBS_DIR \"${QT_LIBS_DIR}\")
+            set(QT_LIBEXECS_DIR \"${QT_LIBEXECS_DIR}\")
+            set(CMAKE_SYSTEM_LIBRARY_PATH \"${CMAKE_SYSTEM_LIBRARY_PATH}\")
+            set(CMAKE_INSTALL_PREFIX \"${CMAKE_INSTALL_PREFIX}\")
+            "
+            COMPONENT bundle)
+
+        install(CODE [[
+            file(GLOB QT_IMAGEFORMAT_DLLS "${QT_PLUGINS_DIR}/imageformats/*.dll")
+            set(CMAKE_GET_RUNTIME_DEPENDENCIES_TOOL objdump)
+            file(GET_RUNTIME_DEPENDENCIES
+                RESOLVED_DEPENDENCIES_VAR imageformatdeps
+                LIBRARIES ${QT_IMAGEFORMAT_DLLS}
+                DIRECTORIES
+                    ${CMAKE_SYSTEM_LIBRARY_PATH}
+                    ${QT_PLUGINS_DIR}
+                    ${QT_LIBS_DIR}
+                    ${QT_LIBEXECS_DIR}
+                PRE_EXCLUDE_REGEXES
+                    "^(api-ms-win|ext-ms)-.*\\.dll$"
+                    # FIXME: Why aren't these caught by the below regex???
+                    "^azure.*\\.dll$"
+                    "^vcruntime.*\\.dll$"
+                POST_EXCLUDE_REGEXES
+                    "system32"
+            )
+            foreach(_lib ${imageformatdeps})
+                file(INSTALL
+                    DESTINATION ${CMAKE_INSTALL_PREFIX}
+                    TYPE SHARED_LIBRARY
+                    FOLLOW_SYMLINK_CHAIN
+                    FILES ${_lib}
+                )
+            endforeach()
+        ]]
+        COMPONENT bundle)
+    endif()
 
     # Add qt.conf - this makes Qt stop looking for things outside the bundle
     install(
@@ -1624,4 +1677,16 @@ if(WIN32 OR (UNIX AND APPLE))
         DESTINATION ${CMAKE_INSTALL_PREFIX}/${RESOURCES_DEST_DIR}
         COMPONENT bundle
     )
+endif()
+
+find_program(CLANG_FORMAT clang-format OPTIONAL)
+if(CLANG_FORMAT)
+    message(STATUS "Creating clang-format target")
+    add_custom_target(
+        clang-format
+        COMMAND ${CLANG_FORMAT} -i --style=file:${CMAKE_SOURCE_DIR}/.clang-format ${LOGIC_SOURCES} ${LAUNCHER_SOURCES} ${PRISMUPDATER_SOURCES} ${LINKEXE_SOURCES} ${PRECOMPILED_HEADERS}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    )
+else()
+    message(WARNING "Unable to find `clang-format`. Not creating custom target")
 endif()
